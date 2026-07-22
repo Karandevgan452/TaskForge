@@ -12,9 +12,9 @@
     </parent>
 
     <groupId>com.taskforge</groupId>
-    <artifactId>taskforge-api</artifactId>
+    <artifactId>taskforge</artifactId>
     <version>1.0.0</version>
-    <name>taskforge-api</name>
+    <name>taskforge</name>
     <description>TaskForge REST API - Production-ready task management backend</description>
 
     <properties>
@@ -105,7 +105,7 @@
     </dependencies>
 
     <build>
-        <finalName>taskforge-api</finalName>
+        <finalName>taskforge</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

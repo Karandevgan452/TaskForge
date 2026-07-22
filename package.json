@@ -1,5 +1,5 @@
 {
-  "name": "taskforge-api",
+  "name": "taskforge",
   "version": "1.0.0",
   "description": "Production-ready task management REST API with Java, Spring Boot, PostgreSQL, Prisma ORM, Docker, and GitHub Actions",
   "main": "index.js",
