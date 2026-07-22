@@ -21,7 +21,7 @@
 - [Environment Variables & Secrets Guide](#-environment-variables--secrets-guide)
   - [Render Environment Variables](#1-render-environment-variables-render-dashboard)
   - [GitHub Actions Secrets](#2-github-actions-secrets-github-repo-settings)
-- [CI/CD & Tag-Based Deployment](#-cicd--tag-based-deployment)
+- [CI/CD & Tag-Based Deployment Workflow](#-cicd--tag-based-deployment-workflow)
 - [Quick Start & Local Troubleshooting](#-quick-start--local-troubleshooting)
 
 ---
@@ -29,13 +29,6 @@
 ## 🚀 Overview
 
 **TaskForge** is an enterprise-ready backend REST API designed for high-performance task tracking and workflow management. It enforces strict separation of concerns, comprehensive input validation, stateless JWT authentication, and automatic CI/CD deployment workflows.
-
-### Tech Stack Highlights
-- **Backend:** Java 21 LTS, Spring Boot 3.3.2 (Web, Data JPA, Security, Actuator, Validation)
-- **Database Layer:** Prisma ORM for schema migrations & modeling, PostgreSQL for production persistence, H2 for sub-second test execution.
-- **Security:** Spring Security 6 with stateless JWT Bearer token authentication & BCrypt password hashing.
-- **Documentation:** Interactive OpenAPI 3.0 / Swagger UI (`/swagger-ui.html`).
-- **DevOps:** Multi-stage Docker build, Docker Compose orchestration, GitHub Actions CI/CD, Prisma CD migration, Docker Hub registry, and Render cloud hosting.
 
 ---
 
@@ -130,7 +123,6 @@ TaskForge/
 
 The codebase comes equipped with a comprehensive test suite covering **unit tests** and **full-stack integration tests**.
 
-### Test Summary
 - **Total Test Cases:** 27
 - **Passing Status:** ✅ **100% PASSING**
 - **Test Execution Command:** `./run-tests.sh` or `npm test` or `./mvnw test`
@@ -138,8 +130,6 @@ The codebase comes equipped with a comprehensive test suite covering **unit test
 ---
 
 ## 🔐 Environment Variables & Secrets Guide
-
-To prevent configuration confusion, environment variables are strictly categorized between **Render Web Service Environment Variables** and **GitHub Actions Secrets**.
 
 ### 1. Render Environment Variables (Render Dashboard)
 Configure these in **Render Dashboard** -> **Web Services** -> **Your Service** -> **Environment**:
@@ -167,27 +157,52 @@ Configure these in **GitHub Repository** -> **Settings** -> **Secrets and variab
 
 ---
 
-## 🚢 CI/CD & Tag-Based Deployment
+## 🚢 CI/CD & Tag-Based Deployment Workflow
 
-GitHub Actions workflow is located at `.github/workflows/deploy.yml`.
+The deployment pipeline is fully tag-driven (`.github/workflows/deploy.yml`).
 
-### How Deployment Triggers Work
-1. **Pull Requests & Code Pushes to `main`**:
-   - Triggers the **CI Stage**.
-   - Executes `./run-tests.sh`. If any test fails, the workflow aborts immediately.
-2. **Git Tag Releases (e.g. `v1.0.0`)**:
-   - Triggers **CI Stage** followed by the **CD Stage**.
-   - **CD Steps:**
-     1. Runs Prisma DB migrations on target DB (`npx prisma migrate deploy`).
-     2. Packages Maven executable JAR (`./mvnw clean package -DskipTests`).
-     3. Builds Docker image and tags it with `${TAG_NAME}` and `latest`.
-     4. Pushes Docker image to Docker Hub using `DOCKER_USERNAME` and `DOCKER_PASSWORD`.
-     5. Triggers deployment hook on Render Web Services via `RENDER_DEPLOY_HOOK_URL`.
+### CI vs CD Triggering Rules
+1. **CI Pipeline (`ci-test`)**:
+   - Runs automatically on **every Pull Request** opened/updated against any branch.
+   - Runs automatically on **every push to `main`**.
+   - Runs automatically on **every version tag push (`v*`)**.
+   - Executes `./run-tests.sh`. If any test fails, execution halts immediately.
 
-#### Triggering a Release
+2. **CD Pipeline (`cd-deploy`)**:
+   - Runs **ONLY** when a developer explicitly pushes a version tag (e.g. `v1.0.0`, `v1.0.1`).
+   - Strictly depends on CI passing first (`needs: ci-test`).
+
+### Version Tag Propagation Flow
+
+```text
+[Developer Pushes Git Tag: v1.0.0] 
+        │
+        ▼
+[CI Job: run-tests.sh] ──(Fails)──► Stop Pipeline Immediately
+        │ (Passes)
+        ▼
+[CD Job: Prisma Migration] ──► npx prisma migrate deploy
+        │
+        ▼
+[Maven Package] ──► target/taskforge-api.jar
+        │
+        ▼
+[Version-Tagged Docker Build & Push] ──► Docker Hub:
+                                          yourusername/taskforge-api:v1.0.0
+        │
+        ▼
+[Render Deploy Webhook] ──► Triggers Render to pull and deploy:
+                            docker.io/yourusername/taskforge-api:v1.0.0
+```
+
+### Triggering a Release (Step-by-Step)
+
 To trigger a new production deployment:
 ```bash
+# 1. Create a release tag
 git tag v1.0.0
+
+# 2. Push tag to GitHub
 git push origin v1.0.0
 ```
 
