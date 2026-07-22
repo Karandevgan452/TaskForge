@@ -41,9 +41,13 @@ jobs:
     name: 2. CD - Migration, Build, Version-Tagged Docker Push & Render Deployment
     runs-on: ubuntu-latest
     needs: ci-test
+    env:
+      DOCKER_REPO: taskforge
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -82,75 +86,63 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Extract Git Release Tag Name
-        id: vars
+      - name: Find Version Tag and Prepare Image Name
         run: |
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
-          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
-          echo "Extracted Git Tag: ${TAG_NAME}"
+          VERSION_TAG=$(git tag --points-at HEAD | grep '^v' | head -n 1)
+          if [ -z "$VERSION_TAG" ]; then
+            VERSION_TAG="${GITHUB_REF#refs/tags/}"
+          fi
 
-      - name: Build and Push Version-Tagged Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/taskforge:${{ env.TAG_NAME }}
+          if [ -z "$VERSION_TAG" ]; then
+            echo "❌ No version tag (v*) found for this commit!"
+            exit 1
+          fi
 
-      - name: Deploy Exact Version-Tagged Image to Render
+          IMAGE="docker.io/${{ secrets.DOCKER_USERNAME }}/${DOCKER_REPO}:${VERSION_TAG}"
+          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          echo "Extracted Version Tag: $VERSION_TAG"
+          echo "Target Image: $IMAGE"
+
+      - name: Build and Push Docker Image
         run: |
-          IMAGE_TAG_CANONICAL="docker.io/${{ secrets.DOCKER_USERNAME }}/taskforge:${{ env.TAG_NAME }}"
-          IMAGE_TAG_SHORT="${{ secrets.DOCKER_USERNAME }}/taskforge:${{ env.TAG_NAME }}"
-          BASE_URL="${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Building and Pushing Docker Image..."
+          docker build -f Dockerfile -t "${{ env.IMAGE }}" .
+          docker push "${{ env.IMAGE }}"
+          echo "✅ Docker Image pushed successfully: ${{ env.IMAGE }}"
+
+      - name: Trigger Render Deployment Hook
+        run: |
+          echo "🚀 Triggering Render deployment for image: ${{ env.IMAGE }}..."
           
-          if [[ "$BASE_URL" == *"?"* ]]; then
-            PARAM_SEP="&"
+          # URL-encode the image URL completely (handling slashes, colons, etc.)
+          ENCODED_IMAGE=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${{ env.IMAGE }}', safe=''))")
+          
+          # Determine proper query parameter separator
+          if [[ "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" == *\?* ]]; then
+            SEPARATOR="&"
           else
-            PARAM_SEP="?"
+            SEPARATOR="?"
           fi
 
-          echo "Attempting Render deployment for tag: ${{ env.TAG_NAME }}"
+          MASKED_URL=$(echo "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" | sed 's/key=[^&]*/key=**redacted**/g')
+          echo "Calling deploy hook: ${MASKED_URL}${SEPARATOR}imgURL=${ENCODED_IMAGE}"
 
-          # Attempt 1: Canonical docker.io URL
-          DEPLOY_URL_1="${BASE_URL}${PARAM_SEP}imgUrl=${IMAGE_TAG_CANONICAL}"
-          echo "Trying deploy hook with canonical URL: ${DEPLOY_URL_1}"
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_URL_1")
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ] || [ "$HTTP_STATUS" -eq 202 ]; then
-            echo "Render deployment triggered successfully with canonical tag! Status: $HTTP_STATUS"
+          # Call Render deploy webhook with imgURL parameter
+          RESPONSE=$(curl -sS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}${SEPARATOR}imgURL=${ENCODED_IMAGE}" \
+            -w "\n%{http_code}")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+          
+          echo "Response Body: $BODY"
+          echo "HTTP Status Code: $HTTP_CODE"
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "202" ]; then
+            echo "✅ Render deployment triggered successfully!"
+          else
+            echo "❌ Failed to trigger Render deployment"
+            echo "HTTP Status: $HTTP_CODE"
             echo "Response: $BODY"
-            exit 0
+            exit 1
           fi
-
-          echo "Canonical URL attempt returned status $HTTP_STATUS: $BODY"
-
-          # Attempt 2: Short image URL
-          DEPLOY_URL_2="${BASE_URL}${PARAM_SEP}imgUrl=${IMAGE_TAG_SHORT}"
-          echo "Trying deploy hook with short URL: ${DEPLOY_URL_2}"
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_URL_2")
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ] || [ "$HTTP_STATUS" -eq 202 ]; then
-            echo "Render deployment triggered successfully with short image tag! Status: $HTTP_STATUS"
-            echo "Response: $BODY"
-            exit 0
-          fi
-
-          echo "Short URL attempt returned status $HTTP_STATUS: $BODY"
-
-          # Attempt 3: Standard Base Deploy Hook URL
-          echo "Trying standard base deploy hook URL: ${BASE_URL}"
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL")
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ] || [ "$HTTP_STATUS" -eq 202 ]; then
-            echo "Render base deployment hook triggered successfully! Status: $HTTP_STATUS"
-            echo "Response: $BODY"
-            exit 0
-          fi
-
-          echo "Error: All Render deployment attempts failed. Final status: $HTTP_STATUS, body: $BODY"
-          exit 1

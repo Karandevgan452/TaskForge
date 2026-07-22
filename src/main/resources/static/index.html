@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskForge — Modern Task Management System</title>
+    <meta name="description" content="Production-ready task management web application built with Java Spring Boot, PostgreSQL, and Prisma ORM.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Navigation Header -->
+        <header class="navbar">
+            <div class="brand">
+                <div class="logo-icon">🛡️</div>
+                <div class="brand-text">
+                    <span class="brand-title">TaskForge</span>
+                    <span class="brand-badge">v1.0.0</span>
+                </div>
+            </div>
+            
+            <div class="nav-actions" id="navActions">
+                <!-- User profile or login button rendered via JS -->
+            </div>
+        </header>
+
+        <!-- Main Content Wrapper -->
+        <main class="main-content">
+            <!-- Unauthenticated Banner / Hero (visible when logged out) -->
+            <section id="authHero" class="auth-hero hidden">
+                <div class="hero-card">
+                    <h1>Manage Tasks with Precision</h1>
+                    <p>Production-ready task tracking backend powered by Java 21, Spring Boot, and Prisma ORM.</p>
+                    <div class="hero-buttons">
+                        <button class="btn btn-primary btn-lg" onclick="openAuthModal('register')">Get Started Free</button>
+                        <button class="btn btn-secondary btn-lg" onclick="openAuthModal('login')">Sign In</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Authenticated Dashboard (visible when logged in) -->
+            <section id="dashboard" class="dashboard-section hidden">
+                <!-- Metrics Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon total-icon">📋</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statTotal">0</span>
+                            <span class="stat-label">Total Tasks</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon pending-icon">⏳</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statPending">0</span>
+                            <span class="stat-label">Pending</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon progress-icon">⚡</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statInProgress">0</span>
+                            <span class="stat-label">In Progress</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon completed-icon">✅</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statCompleted">0</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Controls Bar -->
+                <div class="controls-bar">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchInput" placeholder="Search tasks by title or description..." oninput="handleSearchInput()">
+                    </div>
+
+                    <div class="filters-group">
+                        <select id="statusFilter" onchange="loadTasks()">
+                            <option value="">All Statuses</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="COMPLETED">Completed</option>
+                        </select>
+
+                        <select id="priorityFilter" onchange="loadTasks()">
+                            <option value="">All Priorities</option>
+                            <option value="HIGH">High Priority</option>
+                            <option value="MEDIUM">Medium Priority</option>
+                            <option value="LOW">Low Priority</option>
+                        </select>
+
+                        <button class="btn btn-primary" onclick="openTaskModal()">
+                            <span>+</span> Create Task
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tasks List Grid -->
+                <div id="tasksGrid" class="tasks-grid">
+                    <!-- Task cards rendered dynamically via JS -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="empty-state hidden">
+                    <div class="empty-icon">📂</div>
+                    <h3>No tasks found</h3>
+                    <p>Get started by creating your first task or clear your search filters.</p>
+                    <button class="btn btn-primary" onclick="openTaskModal()">Create New Task</button>
+                </div>
+
+                <!-- Pagination Bar -->
+                <div id="paginationBar" class="pagination-bar hidden">
+                    <button id="prevPageBtn" class="btn btn-secondary btn-sm" onclick="changePage(-1)">← Previous</button>
+                    <span id="pageInfo" class="page-info">Page 1 of 1</span>
+                    <button id="nextPageBtn" class="btn btn-secondary btn-sm" onclick="changePage(1)">Next →</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>TaskForge REST API &bull; Built with Java 21, Spring Boot 3.3 & Prisma ORM &bull; Fully Automated CI/CD</p>
+        </footer>
+    </div>
+
+    <!-- Authentication Modal -->
+    <div id="authModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+            <div class="modal-header">
+                <h2 id="authModalTitle">Sign In to TaskForge</h2>
+                <p id="authModalSubtitle">Enter your credentials to manage your task workspace.</p>
+            </div>
+            
+            <form id="authForm" onsubmit="handleAuthSubmit(event)">
+                <div id="nameGroup" class="form-group hidden">
+                    <label for="authName">Full Name</label>
+                    <input type="text" id="authName" placeholder="Alex Johnson">
+                </div>
+
+                <div class="form-group">
+                    <label for="authEmail">Email Address</label>
+                    <input type="email" id="authEmail" required placeholder="alex@example.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="authPassword">Password</label>
+                    <input type="password" id="authPassword" required placeholder="••••••••">
+                </div>
+
+                <button type="submit" id="authSubmitBtn" class="btn btn-primary btn-block">Sign In</button>
+            </form>
+
+            <div class="modal-footer">
+                <span id="authToggleText">Don't have an account?</span>
+                <a href="#" id="authToggleLink" onclick="toggleAuthMode(event)">Register here</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal (Create / Edit) -->
+    <div id="taskModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <button class="modal-close" onclick="closeTaskModal()">&times;</button>
+            <div class="modal-header">
+                <h2 id="taskModalTitle">Create New Task</h2>
+                <p>Fill in task details below.</p>
+            </div>
+
+            <form id="taskForm" onsubmit="handleTaskSubmit(event)">
+                <input type="hidden" id="taskId">
+
+                <div class="form-group">
+                    <label for="taskTitle">Task Title *</label>
+                    <input type="text" id="taskTitle" required placeholder="e.g. Implement CI/CD Pipeline">
+                </div>
+
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" rows="3" placeholder="Provide detailed instructions or task goals..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="taskPriority">Priority</label>
+                        <select id="taskPriority">
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM" selected>Medium</option>
+                            <option value="HIGH">High</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskDueDate">Due Date</label>
+                        <input type="datetime-local" id="taskDueDate">
+                    </div>
+                </div>
+
+                <button type="submit" id="taskSubmitBtn" class="btn btn-primary btn-block">Save Task</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Custom JavaScript -->
+    <script src="/js/app.js"></script>
+</body>
+</html>
