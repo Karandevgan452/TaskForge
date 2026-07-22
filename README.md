@@ -184,15 +184,15 @@ The deployment pipeline is fully tag-driven (`.github/workflows/deploy.yml`).
 [CD Job: Prisma Migration] ──► npx prisma migrate deploy
         │
         ▼
-[Maven Package] ──► target/taskforge-api.jar
+[Maven Package] ──► target/taskforge.jar
         │
         ▼
 [Version-Tagged Docker Build & Push] ──► Docker Hub:
-                                          yourusername/taskforge-api:v1.0.0
+                                         yourusername/taskforge:v1.0.0
         │
         ▼
 [Render Deploy Webhook] ──► Triggers Render to pull and deploy:
-                            docker.io/yourusername/taskforge-api:v1.0.0
+                            docker.io/yourusername/taskforge:v1.0.0
 ```
 
 ### Triggering a Release (Step-by-Step)

@@ -100,29 +100,63 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/taskforge-api:${{ env.TAG_NAME }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/taskforge:${{ env.TAG_NAME }}
 
       - name: Deploy Exact Version-Tagged Image to Render
         run: |
-          IMAGE_TAG="${{ secrets.DOCKER_USERNAME }}/taskforge-api:${{ env.TAG_NAME }}"
-          echo "Deploying specific version tag to Render: ${IMAGE_TAG}"
+          IMAGE_TAG_CANONICAL="docker.io/${{ secrets.DOCKER_USERNAME }}/taskforge:${{ env.TAG_NAME }}"
+          IMAGE_TAG_SHORT="${{ secrets.DOCKER_USERNAME }}/taskforge:${{ env.TAG_NAME }}"
+          BASE_URL="${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
           
-          if [[ "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" == *"?"* ]]; then
-            DEPLOY_URL="${{ secrets.RENDER_DEPLOY_HOOK_URL }}&imgUrl=${IMAGE_TAG}"
+          if [[ "$BASE_URL" == *"?"* ]]; then
+            PARAM_SEP="&"
           else
-            DEPLOY_URL="${{ secrets.RENDER_DEPLOY_HOOK_URL }}?imgUrl=${IMAGE_TAG}"
+            PARAM_SEP="?"
           fi
-          
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_URL")
+
+          echo "Attempting Render deployment for tag: ${{ env.TAG_NAME }}"
+
+          # Attempt 1: Canonical docker.io URL
+          DEPLOY_URL_1="${BASE_URL}${PARAM_SEP}imgUrl=${IMAGE_TAG_CANONICAL}"
+          echo "Trying deploy hook with canonical URL: ${DEPLOY_URL_1}"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_URL_1")
           HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "Response from Render: $BODY"
-          echo "HTTP Status: $HTTP_STATUS"
-          
-          if [ "$HTTP_STATUS" -ne 200 ] && [ "$HTTP_STATUS" -ne 201 ]; then
-            echo "Error: Render deploy hook failed with status code $HTTP_STATUS"
-            exit 1
+
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ] || [ "$HTTP_STATUS" -eq 202 ]; then
+            echo "Render deployment triggered successfully with canonical tag! Status: $HTTP_STATUS"
+            echo "Response: $BODY"
+            exit 0
           fi
-          
-          echo "Render deployment triggered successfully for version tag ${{ env.TAG_NAME }}!"
+
+          echo "Canonical URL attempt returned status $HTTP_STATUS: $BODY"
+
+          # Attempt 2: Short image URL
+          DEPLOY_URL_2="${BASE_URL}${PARAM_SEP}imgUrl=${IMAGE_TAG_SHORT}"
+          echo "Trying deploy hook with short URL: ${DEPLOY_URL_2}"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_URL_2")
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ] || [ "$HTTP_STATUS" -eq 202 ]; then
+            echo "Render deployment triggered successfully with short image tag! Status: $HTTP_STATUS"
+            echo "Response: $BODY"
+            exit 0
+          fi
+
+          echo "Short URL attempt returned status $HTTP_STATUS: $BODY"
+
+          # Attempt 3: Standard Base Deploy Hook URL
+          echo "Trying standard base deploy hook URL: ${BASE_URL}"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL")
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ] || [ "$HTTP_STATUS" -eq 202 ]; then
+            echo "Render base deployment hook triggered successfully! Status: $HTTP_STATUS"
+            echo "Response: $BODY"
+            exit 0
+          fi
+
+          echo "Error: All Render deployment attempts failed. Final status: $HTTP_STATUS, body: $BODY"
+          exit 1

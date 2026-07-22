@@ -14,7 +14,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Copy built jar artifact from builder stage
-COPY --from=builder /app/target/taskforge-api.jar app.jar
+COPY --from=builder /app/target/taskforge.jar app.jar
 
 # Expose server port
 EXPOSE 8080
