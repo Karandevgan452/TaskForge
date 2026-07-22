@@ -104,7 +104,7 @@ jobs:
 
       - name: Deploy Exact Version-Tagged Image to Render
         run: |
-          IMAGE_TAG="docker.io/${{ secrets.DOCKER_USERNAME }}/taskforge-api:${{ env.TAG_NAME }}"
+          IMAGE_TAG="${{ secrets.DOCKER_USERNAME }}/taskforge-api:${{ env.TAG_NAME }}"
           echo "Deploying specific version tag to Render: ${IMAGE_TAG}"
           
           if [[ "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" == *"?"* ]]; then
@@ -113,6 +113,16 @@ jobs:
             DEPLOY_URL="${{ secrets.RENDER_DEPLOY_HOOK_URL }}?imgUrl=${IMAGE_TAG}"
           fi
           
-          curl -X POST "$DEPLOY_URL"
-          echo ""
-          echo "Render deployment triggered successfully for version tag ${env.TAG_NAME}!"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DEPLOY_URL")
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response from Render: $BODY"
+          echo "HTTP Status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ne 200 ] && [ "$HTTP_STATUS" -ne 201 ]; then
+            echo "Error: Render deploy hook failed with status code $HTTP_STATUS"
+            exit 1
+          fi
+          
+          echo "Render deployment triggered successfully for version tag ${{ env.TAG_NAME }}!"
