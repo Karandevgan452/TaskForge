@@ -1,0 +1,31 @@
+{
+  "name": "taskforge-api",
+  "version": "1.0.0",
+  "description": "Production-ready task management REST API with Java, Spring Boot, PostgreSQL, Prisma ORM, Docker, and GitHub Actions",
+  "main": "index.js",
+  "scripts": {
+    "test": "./run-tests.sh",
+    "build": "./mvnw clean package -DskipTests",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:push": "prisma db push"
+  },
+  "keywords": [
+    "spring-boot",
+    "java",
+    "prisma",
+    "postgresql",
+    "docker",
+    "cicd",
+    "rest-api"
+  ],
+  "author": "TaskForge Engineering",
+  "license": "MIT",
+  "devDependencies": {
+    "prisma": "^5.14.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.14.0"
+  }
+}
