@@ -65,6 +65,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/",
                                 "/index.html",
+                                "/_next/**",
                                 "/css/**",
                                 "/js/**",
                                 "/favicon.ico",
@@ -75,6 +76,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(request -> !request.getRequestURI().startsWith("/api/")).permitAll()
                         .anyRequest().authenticated()
                 );
 

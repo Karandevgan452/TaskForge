@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "./run-tests.sh",
-    "build": "./mvnw clean package -DskipTests",
+    "build:frontend": "cd frontend && npm run build && rm -rf ../src/main/resources/static/* && cp -r out/* ../src/main/resources/static/",
+    "build": "npm run build:frontend && ./mvnw clean package -DskipTests",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "./mvnw spring-boot:run",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
