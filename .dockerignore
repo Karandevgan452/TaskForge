@@ -1,0 +1,19 @@
+# Ignore build targets and dependency directories
+target/
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Ignore git and IDE directories
+.git/
+.github/
+.idea/
+.vscode/
+
+# Ignore logs & temporary files
+*.log
+scratch/
+tmp/
+.env
+.env.local

@@ -8,6 +8,9 @@ RUN apk add --no-cache nodejs npm
 COPY package*.json ./
 COPY frontend/package*.json ./frontend/
 
+# Install frontend dependencies so 'next' CLI binary is available
+RUN cd frontend && npm install && cd .. && npm install
+
 # Copy full source
 COPY pom.xml mvnw ./
 COPY .mvn .mvn
