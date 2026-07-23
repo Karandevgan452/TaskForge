@@ -1,26 +1,32 @@
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /app
 
-# Copy dependency specifications and wrapper first for caching
+# Install Node.js & npm for Next.js frontend build stage
+RUN apk add --no-cache nodejs npm
+
+# Copy root and frontend dependency definitions
+COPY package*.json ./
+COPY frontend/package*.json ./frontend/
+
+# Copy full source
 COPY pom.xml mvnw ./
 COPY .mvn .mvn
-
-# Copy source code and build package
+COPY frontend ./frontend
 COPY src ./src
-COPY prisma ./prisma
-RUN chmod +x ./mvnw && ./mvnw clean package -DskipTests
 
+# Make wrapper executable & build unified Next.js + Spring Boot app
+RUN chmod +x ./mvnw && npm run build
+
+# Production runtime stage
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copy built jar artifact from builder stage
+# Copy packaged single server executable JAR
 COPY --from=builder /app/target/taskforge.jar app.jar
 
-# Expose server port
+# Expose application port
 EXPOSE 8080
 
-# Environment variables with defaults
 ENV PORT=8080
-ENV SPRING_PROFILES_ACTIVE=prod
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

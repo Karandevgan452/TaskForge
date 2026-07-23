@@ -63,6 +63,12 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/_next/**",
+                                "/css/**",
+                                "/js/**",
+                                "/favicon.ico",
                                 "/api/auth/**",
                                 "/api/health/**",
                                 "/actuator/**",
@@ -70,6 +76,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(request -> !request.getRequestURI().startsWith("/api/")).permitAll()
                         .anyRequest().authenticated()
                 );
 
